@@ -214,3 +214,60 @@ BEGIN
 END //
 
 DELIMITER ;
+
+-- =============================================
+-- 5. TRIGGERS
+-- =============================================
+
+-- Trigger: Auto-calculate Order Total
+-- Automatically updates the total_amount in Orders table when order items are added/updated/deleted
+
+DROP TRIGGER IF EXISTS trg_update_order_total_after_insert;
+DROP TRIGGER IF EXISTS trg_update_order_total_after_update;
+DROP TRIGGER IF EXISTS trg_update_order_total_after_delete;
+
+DELIMITER //
+
+-- Trigger after inserting an order item
+CREATE TRIGGER trg_update_order_total_after_insert
+AFTER INSERT ON Order_Items
+FOR EACH ROW
+BEGIN
+    UPDATE Orders
+    SET total_amount = (
+        SELECT COALESCE(SUM(quantity * price_at_purchase), 0)
+        FROM Order_Items
+        WHERE order_id = NEW.order_id
+    )
+    WHERE order_id = NEW.order_id;
+END //
+
+-- Trigger after updating an order item
+CREATE TRIGGER trg_update_order_total_after_update
+AFTER UPDATE ON Order_Items
+FOR EACH ROW
+BEGIN
+    UPDATE Orders
+    SET total_amount = (
+        SELECT COALESCE(SUM(quantity * price_at_purchase), 0)
+        FROM Order_Items
+        WHERE order_id = NEW.order_id
+    )
+    WHERE order_id = NEW.order_id;
+END //
+
+-- Trigger after deleting an order item
+CREATE TRIGGER trg_update_order_total_after_delete
+AFTER DELETE ON Order_Items
+FOR EACH ROW
+BEGIN
+    UPDATE Orders
+    SET total_amount = (
+        SELECT COALESCE(SUM(quantity * price_at_purchase), 0)
+        FROM Order_Items
+        WHERE order_id = OLD.order_id
+    )
+    WHERE order_id = OLD.order_id;
+END //
+
+DELIMITER ;
