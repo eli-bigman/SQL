@@ -139,3 +139,78 @@ SELECT
 FROM Customers c
 JOIN Orders o ON c.customer_id = o.customer_id
 ORDER BY c.customer_id, o.order_date;
+
+
+-- =============================================
+-- 4. PERFORMANCE OPTIMIZATION (Views & Stored Procedures)
+-- =============================================
+
+-- View: CustomerSalesSummary
+-- Pre-calculate total amount spent by each customer.
+CREATE OR REPLACE VIEW CustomerSalesSummary AS
+SELECT 
+    c.customer_id,
+    c.full_name,
+    c.email,
+    COUNT(o.order_id) AS total_orders,
+    COALESCE(SUM(o.total_amount), 0) AS total_lifetime_value
+FROM Customers c
+LEFT JOIN Orders o ON c.customer_id = o.customer_id
+GROUP BY c.customer_id, c.full_name, c.email;
+
+-- Stored Procedure: ProcessNewOrder
+-- Handles stock checking, inventory updates, and order creation transactionally.
+DROP PROCEDURE IF EXISTS ProcessNewOrder;
+
+DELIMITER //
+
+CREATE PROCEDURE ProcessNewOrder(
+    IN p_customer_id INT,
+    IN p_product_id INT,
+    IN p_quantity INT
+)
+BEGIN
+    DECLARE v_price DECIMAL(10,2);
+    DECLARE v_stock INT;
+    DECLARE v_order_id INT;
+
+    -- Start transaction
+    START TRANSACTION;
+
+    -- 1. Check current stock and price
+    SELECT quantity_on_hand, price INTO v_stock, v_price
+    FROM Products p
+    JOIN Inventory i ON p.product_id = i.product_id
+    WHERE p.product_id = p_product_id
+    FOR UPDATE; -- Lock the rows to prevent race conditions
+
+    -- 2. Check if enough stock exists
+    IF v_stock >= p_quantity THEN
+        -- a. Reduce Inventory
+        UPDATE Inventory 
+        SET quantity_on_hand = quantity_on_hand - p_quantity
+        WHERE product_id = p_product_id;
+
+        -- b. Create Order Record
+        INSERT INTO Orders (customer_id, order_date, total_amount, order_status)
+        VALUES (p_customer_id, NOW(), (v_price * p_quantity), 'Pending');
+        
+        -- Get the generated Order ID
+        SET v_order_id = LAST_INSERT_ID();
+
+        -- c. Create Order Item Record
+        INSERT INTO Order_Items (order_id, product_id, quantity, price_at_purchase)
+        VALUES (v_order_id, p_product_id, p_quantity, v_price);
+
+        -- Commit transaction
+        COMMIT;
+        SELECT 'Order processed successfully' AS message, v_order_id AS new_order_id;
+    ELSE
+        -- Not enough stock, rollback
+        ROLLBACK;
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Insufficient stock for product';
+    END IF;
+END //
+
+DELIMITER ;
