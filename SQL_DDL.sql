@@ -15,6 +15,7 @@ CREATE TABLE Customers (
     phone VARCHAR(20),
     shipping_address VARCHAR(255) NOT NULL
 );
+
 -- 2. Create Products Table
 CREATE TABLE Products (
     product_id INT AUTO_INCREMENT PRIMARY KEY,
@@ -23,7 +24,6 @@ CREATE TABLE Products (
     price DECIMAL(10, 2) NOT NULL,
     CONSTRAINT chk_product_price CHECK (price >= 0)
 );
-
 
 -- 3. Create Inventory Table
 CREATE TABLE Inventory (
@@ -34,3 +34,34 @@ CREATE TABLE Inventory (
     CONSTRAINT fk_inventory_product FOREIGN KEY (product_id) REFERENCES Products(product_id) ON DELETE CASCADE,
     CONSTRAINT chk_inventory_qty CHECK (quantity_on_hand >= 0)
 );
+
+-- 4. Create Orders Table
+CREATE TABLE Orders (
+    order_id INT AUTO_INCREMENT PRIMARY KEY,
+    customer_id INT NOT NULL,
+    order_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+    total_amount DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+    order_status VARCHAR(20) NOT NULL DEFAULT 'Pending',
+    CONSTRAINT fk_order_customer FOREIGN KEY (customer_id) REFERENCES Customers(customer_id) ON DELETE RESTRICT,
+    CONSTRAINT chk_order_amount CHECK (total_amount >= 0)
+);
+
+-- 5. Create Order_Items Table
+CREATE TABLE Order_Items (
+    order_item_id INT AUTO_INCREMENT PRIMARY KEY,
+    order_id INT NOT NULL,
+    product_id INT NOT NULL,
+    quantity INT NOT NULL,
+    price_at_purchase DECIMAL(10, 2) NOT NULL,
+    CONSTRAINT fk_order_items_order FOREIGN KEY (order_id) REFERENCES Orders(order_id) ON DELETE CASCADE,
+    CONSTRAINT fk_order_items_product FOREIGN KEY (product_id) REFERENCES Products(product_id) ON DELETE RESTRICT,
+    CONSTRAINT chk_order_item_qty CHECK (quantity > 0),
+    CONSTRAINT chk_order_item_price CHECK (price_at_purchase >= 0),
+    UNIQUE KEY uq_order_product (order_id, product_id)
+);
+
+-- Indexes for performance optimization
+CREATE INDEX idx_customer_email ON Customers(email);
+CREATE INDEX idx_product_category ON Products(category);
+CREATE INDEX idx_order_customer ON Orders(customer_id);
+CREATE INDEX idx_order_date ON Orders(order_date);
