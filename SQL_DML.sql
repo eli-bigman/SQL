@@ -106,3 +106,36 @@ FROM Orders
 WHERE order_status IN ('Shipped', 'Delivered')
 GROUP BY DATE_FORMAT(order_date, '%Y-%m')
 ORDER BY sales_month;
+
+-- =============================================
+-- 3. ANALYTICAL QUERIES (Window Functions)
+-- =============================================
+
+-- Analytic 1: Sales Rank by Category
+-- Rank products by total sales revenue within their category.
+WITH ProductSales AS (
+    SELECT 
+        p.category,
+        p.product_name,
+        SUM(oi.quantity * oi.price_at_purchase) AS product_revenue
+    FROM Products p
+    JOIN Order_Items oi ON p.product_id = oi.product_id
+    GROUP BY p.category, p.product_name
+)
+SELECT 
+    category,
+    product_name,
+    product_revenue,
+    RANK() OVER (PARTITION BY category ORDER BY product_revenue DESC) AS rank_in_category
+FROM ProductSales;
+
+-- Analytic 2: Customer Order Frequency
+-- Show previous order date alongside current order date.
+SELECT 
+    c.full_name,
+    o.order_id,
+    o.order_date,
+    LAG(o.order_date) OVER (PARTITION BY c.customer_id ORDER BY o.order_date) AS previous_order_date
+FROM Customers c
+JOIN Orders o ON c.customer_id = o.customer_id
+ORDER BY c.customer_id, o.order_date;
