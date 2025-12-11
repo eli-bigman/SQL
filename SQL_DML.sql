@@ -62,3 +62,47 @@ INSERT INTO Order_Items (order_id, product_id, quantity, price_at_purchase) VALU
 INSERT INTO Order_Items (order_id, product_id, quantity, price_at_purchase) VALUES
 (5, 1, 1, 1200.00),
 (5, 4, 1, 80.00);
+
+
+-- =============================================
+-- 2. BUSINESS KPIs
+-- =============================================
+
+-- KPI 1: Total Revenue
+-- Calculate the total revenue from all 'Shipped' or 'Delivered' orders.
+SELECT 
+    SUM(total_amount) AS total_revenue
+FROM Orders
+WHERE order_status IN ('Shipped', 'Delivered');
+
+-- KPI 2: Top 10 Customers
+-- Find the top 10 customers by their total spending.
+SELECT 
+    c.full_name,
+    SUM(o.total_amount) AS total_spent
+FROM Customers c
+JOIN Orders o ON c.customer_id = o.customer_id
+GROUP BY c.customer_id, c.full_name
+ORDER BY total_spent DESC
+LIMIT 10;
+
+-- KPI 3: Best-Selling Products
+-- List the top 5 best-selling products by quantity sold.
+SELECT 
+    p.product_name,
+    SUM(oi.quantity) AS total_quantity_sold
+FROM Products p
+JOIN Order_Items oi ON p.product_id = oi.product_id
+GROUP BY p.product_id, p.product_name
+ORDER BY total_quantity_sold DESC
+LIMIT 5;
+
+-- KPI 4: Monthly Sales Trend
+-- Show the total sales revenue for each month.
+SELECT 
+    DATE_FORMAT(order_date, '%Y-%m') AS sales_month,
+    SUM(total_amount) AS monthly_revenue
+FROM Orders
+WHERE order_status IN ('Shipped', 'Delivered')
+GROUP BY DATE_FORMAT(order_date, '%Y-%m')
+ORDER BY sales_month;
